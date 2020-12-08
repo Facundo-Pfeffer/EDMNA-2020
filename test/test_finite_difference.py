@@ -3,12 +3,18 @@ from finite_difference import FiniteDifferenceProblem
 
 def problem_1():
     return FiniteDifferenceProblem(x_domain=(0, 1), y_domain=(0, 1),
-                                   x_partitions=3, y_partitions=3,
-                                   left_x_condition=lambda y: 0,
-                                   right_x_condition=lambda y: 1,
-                                   bottom_y_condition=lambda x: x,
-                                   top_y_condition=lambda x: x ** 2,
-                                   first_condition=lambda x, y: -1)
+                                  x_partitions=3, y_partitions=3,
+                                  left_x_condition=lambda y: 0,
+                                  right_x_condition=lambda y: 1,
+                                  bottom_y_condition=lambda x: x,
+                                  top_y_condition=lambda x: x ** 2,
+                                  differential_coefficients={'A': 1,
+                                                             'B': 0,
+                                                             'C': 1,
+                                                             'D': -1,
+                                                             'E': 0,
+                                                             'F': 0,
+                                                             'G': lambda x, y: -1})
 
 def test_object_definition():
     problem = problem_1()
@@ -31,7 +37,7 @@ def test_number_of_unknowns():
 
 def test_initialize_vertex_values():
     problem = problem_1()
-    assert problem.initialize_vertex_values(x_part=3, y_part=3) == [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+    assert problem.initialize_vertex_values() == [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
 
 
 def test_lambda_functions():
@@ -43,6 +49,14 @@ def test_initialize_row():
     problem = problem_1()
     assert problem.initiliaze_row() == [0, 0, 0, 0]
 
+def test_general():
+    problem = problem_1()
+    assert problem.general_coef(coef_dict={'A': 1,
+                                      'B': 0,
+                                      'C': 1,
+                                      'D': -1,
+                                      'E': 0,
+                                      'F': 0}) == problem.coefficient_matrix
 
 def test_final_result():
     problem = problem_1()

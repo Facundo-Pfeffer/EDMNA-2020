@@ -8,7 +8,7 @@ from model.models import Vertex
 class FiniteDifferenceProblem:
     def __init__(self, x_partitions, y_partitions, x_domain, y_domain,
                  left_x_condition, right_x_condition, bottom_y_condition, top_y_condition,
-                 first_condition):
+                 differential_coefficients):
 
         self.h = self.get_partition(domain=x_domain, partition=x_partitions)
         self.k = self.get_partition(domain=y_domain, partition=y_partitions)
@@ -24,9 +24,9 @@ class FiniteDifferenceProblem:
         self.bottom_y_condition = bottom_y_condition
         self.top_y_condition = top_y_condition
 
-        self.first_condition = first_condition
+        self.first_condition = differential_coefficients['G']
 
-        self.coefficient_matrix = self.get_coefficient_matrix()
+        self.coefficient_matrix = self.get_coefficient_matrix(coef_dict=differential_coefficients)
         self.vertex_values = self.get_vertex_values()
         self.unknown_matrix = self.get_unknown_matrix()
 
@@ -38,7 +38,27 @@ class FiniteDifferenceProblem:
     def get_partition(domain, partition):
         return (domain[1] - domain[0]) / partition
 
-    def get_coefficient_matrix(self):
+    def get_coefficient_matrix(self, coef_dict):
+        return [[0, self.number_4(coef_dict), 0],
+                [self.number_3(coef_dict), self.number_2(coef_dict), self.number_1(coef_dict)],
+                [0, self.number_5(coef_dict), 0]]
+
+    def number_5(self, coef_dict):
+        return coef_dict['C'] / (self.k ** 2) - coef_dict['E'] / (2 * self.k)
+
+    def number_4(self, coef_dict):
+        return coef_dict['C'] / (self.k ** 2) + coef_dict['E'] / (2 * self.k)
+
+    def number_3(self, coef_dict):
+        return (coef_dict['A'] / self.h ** 2) - (coef_dict['D'] / (2 * self.h))
+
+    def number_2(self, coef_dict):
+        return (-2 * coef_dict['A'] / self.h ** 2) - (2 * coef_dict['C'] / (self.k ** 2)) + coef_dict['F']
+
+    def number_1(self, coef_dict):
+        return coef_dict['A'] / (self.h ** 2) + (coef_dict['D'] / (2 * self.h))
+
+    def general_coef(self):
         """Obtiene la Matriz de coeficientes"""
         h = self.h
         k = self.k
@@ -55,8 +75,8 @@ class FiniteDifferenceProblem:
         unknowns_positions = self.get_unknowns_position()
         unknown_identifier = 0
         vertex_values = self.initialize_vertex_values()
-        for i in range(self.y_part+1):
-            for j in range(self.x_part+1):
+        for i in range(self.y_part + 1):
+            for j in range(self.x_part + 1):
                 vertex = Vertex()
                 if (i, j) in unknowns_positions:
                     vertex.IsUnknown = True
@@ -75,27 +95,27 @@ class FiniteDifferenceProblem:
         y_part = self.y_part
         """Inicializa la matriz de arriba con todos 0 en las posiciones"""
         result = []
-        for i in range(y_part+1):
+        for i in range(y_part + 1):
             result.append([])
-            for j in range(x_part+1):
+            for j in range(x_part + 1):
                 result[i].append(0)
         return result
 
     def obtain_boundary_values(self, position):
         """Obtiene el valor en los extremos"""
-        i = position[0] #Fila
-        j = position[1] #Columna
+        i = position[0]  # Fila
+        j = position[1]  # Columna
         value = None
         if i == 0:  # Extremo superior
             x_position = self.get_position(j)
             value = self.top_y_condition(x_position)
-        elif i == self.y_part: #Extremo inderior
+        elif i == self.y_part:  # Extremo inderior
             x_position = self.get_position(j)
             value = self.bottom_y_condition(x_position)
-        elif j == 0: #Extremo izquierdo
+        elif j == 0:  # Extremo izquierdo
             y_position = self.get_position(i, is_x=False)
             value = self.left_x_condition(y_position)
-        elif j == self.x_part:  #Extremo derecho:
+        elif j == self.x_part:  # Extremo derecho:
             y_position = self.get_position(i, is_x=False)
             value = self.right_x_condition(y_position)
         return value
@@ -125,11 +145,11 @@ class FiniteDifferenceProblem:
         summ = indepent_term
         for x_mov in (-1, 0, 1):
             for y_mov in (-1, 0, 1):
-                vertex = self.vertex_values[i+y_mov][j+x_mov]
-                if vertex.IsUnknown: #Incognita
-                    row_value[vertex.Value] = coefficient_matrix[1+y_mov][1+x_mov]
+                vertex = self.vertex_values[i + y_mov][j + x_mov]
+                if vertex.IsUnknown:  # Incognita
+                    row_value[vertex.Value] = coefficient_matrix[1 + y_mov][1 + x_mov]
                 else:
-                    summ = summ - coefficient_matrix[1+y_mov][1+x_mov]*(vertex.Value)
+                    summ = summ - coefficient_matrix[1 + y_mov][1 + x_mov] * (vertex.Value)
         return (row_value, summ)
 
     def initiliaze_row(self):
@@ -161,7 +181,7 @@ class FiniteDifferenceProblem:
         for i in range(self.y_part + 1):
             for j in range(self.x_part + 1):
                 x_position = self.get_position(j)
-                y_position = self.get_position(i,is_x=False)
+                y_position = self.get_position(i, is_x=False)
                 X.append(x_position)
                 Y.append(y_position)
                 Z.append(self.point_cloud[i][j])
@@ -177,12 +197,18 @@ class FiniteDifferenceProblem:
 
 
 problem = FiniteDifferenceProblem(x_domain=(0, 1), y_domain=(0, 1),
-                                  x_partitions=10, y_partitions=10,
+                                  x_partitions=15, y_partitions=15,
                                   left_x_condition=lambda y: 0,
                                   right_x_condition=lambda y: 1,
                                   bottom_y_condition=lambda x: x,
                                   top_y_condition=lambda x: x ** 2,
-                                  first_condition=lambda x, y: -1)
+                                  differential_coefficients={'A': 1, #A uxx + B uxy + C uyy + D ux + E uy + F u = G
+                                                             'B': 0,
+                                                             'C': 1,
+                                                             'D': -1,
+                                                             'E': 0,
+                                                             'F': 0,
+                                                             'G': lambda x, y: -1})
 
 # matrix = problem.get_vertex_values()
 # print(problem.vertex_values[1][1])
@@ -192,8 +218,8 @@ problem = FiniteDifferenceProblem(x_domain=(0, 1), y_domain=(0, 1),
 
 matrix_unknown = np.array(problem.get_unknown_matrix()[0])
 matrix_independent = np.array(problem.get_unknown_matrix()[1])
-print(f"{matrix_unknown}")
+# print(f"{matrix_unknown}")
 cloud_point = np.array(problem.point_cloud)
-print(cloud_point)
+# print(cloud_point)
 
 problem.plot()
